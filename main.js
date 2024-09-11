@@ -1,7 +1,10 @@
 console.log(gsap);
 
 const canvas = document.querySelector("#canvas");
-// console.log(canvas);
+const scoreElement = document.querySelector(".scoreElement");
+const modalElement = document.querySelector("#modalElement");
+const bigScore = document.querySelector('#bigScore');
+modalElement.style.display = "none";
 canvas.width = innerWidth;
 canvas.height = innerHeight;
 const context = canvas.getContext("2d");
@@ -45,16 +48,7 @@ class Player {
     context.fill();
   }
 }
-class Particle {
-  constructor(x, y, radius, color, velocity) {
-    this.x = x;
-    this.y = y;
-    this.radius = radius;
-    this.velocity = velocity;
-    this.alpha = 1;
 
-  }
-}
 class Projectile {
   constructor(x, y, radius, color, velocity) {
     this.x = x;
@@ -77,9 +71,42 @@ class Projectile {
   }
 
 }
+const friction = 0.99;
+class Particle {
+  constructor(x, y, radius, color, velocity) {
+    this.x = x;
+    this.y = y;
+    this.radius = radius;
+    this.color = color;
+    this.velocity = velocity;
+    this.alpha = 1;
+
+  }
+  draw () {
+    context.save();
+    context.globalAlpha = this.alpha;
+    context.beginPath();
+    context.arc(this.x, this.y, this.radius, Math.PI * 2, false);
+    context.fillStyle = this.color;
+    context.fill();
+    context.restore();
+
+  }
+  update () {
+    this.draw();
+    this.velocity.x *= friction;
+    this.velocity.y *= friction;
+    this.x += this.velocity.x;
+    this.y += this.velocity.y;
+    this.alpha -= 0.01;
+  }
+
+}
 const player = new Player(canvas.width / 2, canvas.height / 2, 30, "blue");
 const projectiles = [];
 const enemies = [];
+const particles = [];
+let score = 0;
 addEventListener("click", (event) => {
   const angle = Math.atan2(event.clientY - canvas.height / 2, event.clientX - canvas.width / 2)
   const velocity = { x: Math.cos(angle) * 5, y: Math.sin(angle) * 5 };
@@ -115,6 +142,15 @@ function animate () {
   context.fillStyle = "rgba(0,0,0,0.1)";
   context.clearRect(0, 0, canvas.width, canvas.height);
   player.draw();
+  particles.forEach((particle, particleIndex) => {
+    if (particle.alpha <= 0) {
+      particles.splice(particleIndex, 1);
+    }
+    else {
+      particle.update();
+
+    }
+  })
   projectiles.forEach((projectile, projectileIndex) => {
     projectile.update();
     if (projectile.x + projectile.radius < 0 || projectile.x - projectile.radius > canvas.width || projectile.y + projectile.radius < 0 || projectile.y - projectile.radius > canvas.height) {
@@ -127,16 +163,21 @@ function animate () {
     const distAnimePlayer = Math.hypot(player.x - enemy.x, player.y - enemy.y);
     if (distAnimePlayer - player.radius - enemy.radius < 1) {
       cancelAnimationFrame(animateId);
+      bigScore.innerHTML = score;
+      modalElement.style.display = "flex";
     }
     projectiles.forEach((projectile, projectileIndex) => {
       const dist = Math.hypot(projectile.x - enemy.x, projectile.y - enemy.y);
-      //generate particles
-      // for (let i = 0; i < enemy.radius; i++) {
-
-      // }
       //happy scenario
       if (dist - enemy.radius - projectile.radius < 1) {
+        //generate particles
+        for (let i = 0; i < enemy.radius; i++) {
+          particles.push(new Particle(projectile.x, projectile.y, 3, enemy.color, { x: (Math.random() - 0.5) * Math.random() * 6, y: (Math.random() - 0.5) * Math.random() * 6 }));
+        }
+
         if (enemy.radius - 10 > 5) {
+          score += 100;
+          scoreElement.innerHTML = score;
           enemy.radius -= 10;
           setTimeout(() => {
             projectiles.splice(projectileIndex, 1);
@@ -144,6 +185,8 @@ function animate () {
             , 0)
         }
         else {
+          score += 200;
+          scoreElement.innerHTML = score;
           setTimeout(() => {
             enemies.splice(index, 1);
             projectiles.splice(projectileIndex, 1);
